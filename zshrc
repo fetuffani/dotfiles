@@ -15,5 +15,7 @@ source $ZSH/oh-my-zsh.sh
 
 command -v starship >/dev/null && eval "$(starship init zsh)"
 
+source "${${(%):-%x}:A:h}/aliases.zsh"
+
 # machine-specific overrides (untracked)
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
