@@ -174,7 +174,7 @@ vimcmd_visual_symbol = '[❮](bold fg:yellow)'
 
 [cmd_duration]
 show_milliseconds = true
-format = "[ took $duration](fg:subtext0)"
+format = "[ took $duration ](fg:subtext0)"
 style = ""
 disabled = false
 show_notifications = true
