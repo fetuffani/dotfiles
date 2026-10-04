@@ -8,6 +8,8 @@ On a new server:
 
 To sync later: `~/dotfiles/install.sh` (after `git push` from the other machine).
 
-Use a Nerd Font in your terminal and set the terminal colors to Catppuccin Macchiato (client side).
+Recommended font: **CommitMono Nerd Font Mono**, set in the terminal you connect from (client side). Download: https://www.nerdfonts.com/font-downloads
+
+Also set the terminal colors to Catppuccin Macchiato (client side).
 
 Machine-specific config and secrets go in `~/.zshrc.local` (untracked).
