@@ -22,12 +22,16 @@ $haskell\
 $python\
 [](fg:green bg:sapphire)\
 $conda\
-[](fg:sapphire bg:lavender)\
-$time\
-[ ](fg:lavender)\
+[ ](fg:sapphire)\
 $cmd_duration\
+$fill\
+[](fg:lavender)\
+$time\
 $line_break\
 $character"""
+
+# blank line between prompts; header = user, path, git ... time; input goes on the line below
+add_newline = true
 
 palette = 'catppuccin_macchiato'
 
@@ -153,7 +157,11 @@ style = "bg:lavender"
 format = '[[  $time ](fg:crust bg:lavender)]($style)'
 
 [line_break]
-disabled = true
+disabled = false
+
+[fill]
+symbol = "─"
+style = "fg:surface2"
 
 [character]
 disabled = false
@@ -166,8 +174,8 @@ vimcmd_visual_symbol = '[❮](bold fg:yellow)'
 
 [cmd_duration]
 show_milliseconds = true
-format = " in $duration "
-style = "bg:lavender"
+format = "[ took $duration](fg:subtext0)"
+style = ""
 disabled = false
 show_notifications = true
 min_time_to_notify = 45000
