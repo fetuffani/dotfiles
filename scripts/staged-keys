@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Safe pre-commit review: lists WHAT is being committed without exposing values.
+# Prints staged files, and for each added line the config KEY name plus the
+# value length only. Values are never printed.
+set -uo pipefail
+git diff --cached --quiet && { echo "nothing staged"; exit 0; }
+
+echo "== staged files"
+git diff --cached --name-status --no-color
+
+echo; echo "== added config keys (values masked)"
+for f in $(git diff --cached --name-only --diff-filter=ACM); do
+  [ -f "$f" ] || continue
+  git diff --cached -U0 --no-color -- "$f" | awk -v file="$f" '
+    /^\+\+\+/ || !/^\+/ { next }
+    {
+      line = substr($0, 2)
+      if (line ~ /^[[:space:]]*(#|$)/) next          # comments/blank
+      kind = "other"; key = ""; val = ""
+      s = line
+      sub(/^[[:space:]]*/, "", s)
+      sub(/^(export|typeset( -[a-zA-Z]+)*|local|declare( -[a-zA-Z]+)*|alias|readonly)[[:space:]]+/, "", s)
+      if (match(s, /^[A-Za-z_][A-Za-z0-9_.-]*[=:]/)) {
+        key = substr(s, 1, RLENGTH - 1); val = substr(s, RLENGTH + 1); kind = "key"
+      } else if (match(s, /^[A-Za-z_][A-Za-z0-9_.-]*\+?=\(/)) {
+        key = substr(s, 1, RLENGTH - 2); kind = "array"
+      }
+      if (kind == "key")        printf "%s: %s = <%d chars>\n", file, key, length(val)
+      else if (kind == "array") printf "%s: %s = (array)\n", file, key
+      else                      other[file]++
+    }
+    END { for (f in other) printf "%s: %d other added line(s) (commands/code, content hidden)\n", f, other[f] }'
+done
+
+echo; echo "== sensitive filename check"
+git diff --cached --name-only --diff-filter=ACM | grep -E '(^|/)(id_(rsa|dsa|ecdsa|ed25519)|.*\.(pem|key|p12|pfx|kdbx|ovpn)|\.env(\..*)?|\.netrc|\.npmrc|\.pypirc|credentials|hosts\.yml|\.zshrc\.local)$' || echo "none"
+
+echo; echo "== automated secret scan"
+if .githooks/pre-commit; then echo "pass"; else echo "FAIL (see above)"; exit 1; fi
