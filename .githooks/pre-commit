@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Blocks commits that contain private keys, tokens or credentials.
+# Enabled via: git config core.hooksPath .githooks  (install.sh does this)
+# Bypassing with --no-verify is forbidden, see AGENTS.md.
+set -uo pipefail
+
+# Prefer gitleaks when available (much broader ruleset)
+if command -v gitleaks >/dev/null; then
+  gitleaks protect --staged --redact --no-banner || { echo "pre-commit: gitleaks found secrets, commit blocked." >&2; exit 1; }
+fi
+
+PATTERNS='-----BEGIN ([A-Z]+ )?PRIVATE KEY( BLOCK)?-----
+-----BEGIN OPENSSH PRIVATE KEY-----
+(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}
+github_pat_[A-Za-z0-9_]{30,}
+sk-[A-Za-z0-9_-]{20,}
+sk-ant-[A-Za-z0-9_-]{20,}
+AKIA[0-9A-Z]{16}
+ASIA[0-9A-Z]{16}
+xox[abprs]-[A-Za-z0-9-]{10,}
+AIza[0-9A-Za-z_-]{35}
+glpat-[A-Za-z0-9_-]{20}
+eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}
+(api[_-]?key|secret|token|passw(or)?d|auth)[A-Za-z0-9_]*[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+_.=-]{16,}'
+
+BAD_FILES='(^|/)(id_(rsa|dsa|ecdsa|ed25519)|.*\.(pem|key|p12|pfx|kdbx|ovpn)|\.env(\..*)?|\.netrc|\.npmrc|\.pypirc|credentials|hosts\.yml|\.zshrc\.local)$'
+
+fail=0
+while IFS= read -r f; do
+  if [[ "$f" =~ $BAD_FILES ]]; then
+    echo "pre-commit: sensitive filename staged: $f" >&2; fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+# Scan only added lines; print file + pattern hit, never the secret value
+added=$(git diff --cached -U0 --diff-filter=ACM --no-color -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]|^\+$|^\+\+\+ ' || true)
+while IFS= read -r pat; do
+  [ -z "$pat" ] && continue
+  if grep -Eiq -e "$pat" <<<"$(grep -E '^\+' <<<"$added" | grep -v '^+++ ')"; then
+    echo "pre-commit: staged changes match secret pattern: ${pat:0:40}..." >&2; fail=1
+  fi
+done <<<"$PATTERNS"
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit blocked. Remove the secret (move it to ~/.zshrc.local), unstage it, and rotate it if it was ever pushed." >&2
+  exit 1
+fi

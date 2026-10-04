@@ -40,6 +40,8 @@ link zshrc .zshrc
 link p10k.zsh .p10k.zsh
 # machine-specific stuff goes in ~/.zshrc.local (not tracked); see zshrc
 
+git -C "$DIR" config core.hooksPath .githooks
+
 # default shell
 if [ "$(basename "${SHELL:-}")" != "zsh" ]; then
   $SUDO chsh -s "$(command -v zsh)" "$(id -un)" || echo "run: chsh -s $(command -v zsh)"
