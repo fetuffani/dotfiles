@@ -17,11 +17,11 @@ warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
 need() { command -v "$1" >/dev/null || { echo "missing: $1" >&2; exit 1; }; }
 if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 
-if ! command -v git >/dev/null || ! command -v zsh >/dev/null || ! command -v curl >/dev/null; then
+if ! command -v git >/dev/null || ! command -v zsh >/dev/null || ! command -v curl >/dev/null || ! command -v tmux >/dev/null; then
   log "installing packages"
-  $SUDO apt-get update -qq && $SUDO apt-get install -y -qq git zsh curl
+  $SUDO apt-get update -qq && $SUDO apt-get install -y -qq git zsh curl tmux
 fi
-need git; need zsh; need curl
+need git; need zsh; need curl; need tmux
 
 # 1. dotfiles repo: clone or fast-forward
 log "syncing dotfiles"
@@ -64,6 +64,7 @@ link() {
 log "linking configs"
 link zshrc .zshrc
 link starship.toml .config/starship.toml
+link tmux.conf .tmux.conf
 
 # 6. clean up leftovers from the old powerlevel10k setup
 [ -L "$HOME/.p10k.zsh" ] && rm -f "$HOME/.p10k.zsh"
