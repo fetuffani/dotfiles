@@ -9,4 +9,5 @@ alias rsync='rsync --stats --partial -P --info=name1 --info=progress1 -a -h --ig
 dctail() { docker logs -tf --tail="50" "$@"; }
 
 # gerenciador TUI de sessões do tmux (bin/tmx); `tmux <args>` continua repassando ao tmux real
-alias tmux='tmx'
+# (função em vez de alias: se o tmx ainda não estiver instalado, cai no tmux real)
+tmux() { if (( $+commands[tmx] )); then tmx "$@"; else command tmux "$@"; fi }
