@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# sysclean: limpa os principais caches do sistema.
+#   sysclean            só mostra o que seria limpo e quanto liberaria (dry-run, padrão)
+#   sysclean --yes      executa a limpeza
+#   sysclean --all      também remove imagens Docker sem uso por nenhum container
+#   (combináveis: sysclean --yes --all)
+# Nunca remove containers, volumes, nem imagens em uso.
+set -uo pipefail
+
+RUN=0; ALL=0
+for a in "$@"; do
+  case "$a" in
+    -y|--yes) RUN=1 ;;
+    -a|--all) ALL=1 ;;
+    -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "opção desconhecida: $a" >&2; exit 2 ;;
+  esac
+done
+
+if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+have() { command -v "$1" >/dev/null 2>&1; }
+mb() { du -sm "$@" 2>/dev/null | awk '{s+=$1} END {print s+0}'; }   # tamanho em MB (0 se não existe)
+TOTAL=0
+section() { printf '\n\033[1;35m==>\033[0m %s\n' "$*"; }
+report() { printf '    %-34s %6s MB\n' "$1" "$2"; TOTAL=$((TOTAL + $2)); }
+act() { # act "descrição" cmd...  (executa só com --yes)
+  local d="$1"; shift
+  if [ "$RUN" -eq 1 ]; then printf '    $ %s\n' "$d"; "$@" >/dev/null 2>&1 || echo "    (falhou: $d)"; fi
+}
+
+[ "$RUN" -eq 1 ] && echo "MODO: executando" || echo "MODO: dry-run (use --yes para executar)"
+DF_BEFORE=$(df -m --output=avail / | tail -1 | tr -d ' ')
+
+# --- apt ---
+if have apt-get; then
+  section "apt"
+  report "pacotes baixados (cache)" "$(mb /var/cache/apt/archives)"
+  act "apt-get clean" $SUDO apt-get clean
+fi
+
+# --- journald ---
+if have journalctl; then
+  section "journald (mantém 7 dias)"
+  cur=$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]' | head -1)
+  echo "    uso atual: ${cur:-?}  (estimativa não somada ao total)"
+  act "journalctl --vacuum-time=7d" $SUDO journalctl --vacuum-time=7d
+fi
+
+# --- docker ---
+if have docker && docker info >/dev/null 2>&1; then
+  section "docker"
+  dangling=$(docker images -f dangling=true -q | sort -u | wc -l)
+  echo "    imagens dangling: $dangling"
+  docker system df 2>/dev/null | sed 's/^/    /'
+  act "docker image prune -f" docker image prune -f
+  act "docker builder prune (>7d)" docker builder prune -f --filter until=168h
+  if [ "$ALL" -eq 1 ]; then
+    echo "    --all: remove imagens sem container (as em uso ficam)"
+    act "docker image prune -a -f" docker image prune -a -f
+  else
+    echo "    (imagens sem uso mas com tag ficam; use --all para removê-las)"
+  fi
+fi
+
+# --- caches de usuário ---
+section "caches de usuário"
+for d in "$HOME/.cache/pip" "$HOME/.npm/_cacache" "$HOME/.cache/yarn" "$HOME/.cache/go-build" \
+         "$HOME/.cargo/registry/cache" "$HOME/.cache/thumbnails"; do
+  [ -d "$d" ] || continue
+  report "${d/#$HOME/~}" "$(mb "$d")"
+  act "rm -rf $d" rm -rf -- "$d"
+done
+
+# --- /tmp ---
+section "/tmp (arquivos seus com mais de 7 dias sem acesso)"
+tmp_mb=$(find /tmp -xdev -user "$(id -un)" -type f -mtime +7 -atime +7 -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print int(s/1048576)}')
+report "/tmp antigo" "${tmp_mb:-0}"
+act "remove arquivos antigos de /tmp" find /tmp -xdev -user "$(id -un)" -type f -mtime +7 -atime +7 -delete
+
+section "resumo"
+if [ "$RUN" -eq 1 ]; then
+  DF_AFTER=$(df -m --output=avail / | tail -1 | tr -d ' ')
+  echo "    liberado em /: $((DF_AFTER - DF_BEFORE)) MB"
+else
+  echo "    estimativa (apt + caches + /tmp): ~${TOTAL} MB, fora journald e docker (veja acima)"
+fi

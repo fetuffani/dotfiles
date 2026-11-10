@@ -66,6 +66,7 @@ link zshrc .zshrc
 link starship.toml .config/starship.toml
 link tmux.conf .tmux.conf
 link bin/tmx .local/bin/tmx
+link bin/sysclean .local/bin/sysclean
 
 # 6. clean up leftovers from the old powerlevel10k setup
 [ -L "$HOME/.p10k.zsh" ] && rm -f "$HOME/.p10k.zsh"
