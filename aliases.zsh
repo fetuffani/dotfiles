@@ -7,3 +7,6 @@ alias rsync='rsync --stats --partial -P --info=name1 --info=progress1 -a -h --ig
 
 # function instead of alias so the container name is passed as an argument: dctail <container>
 dctail() { docker logs -tf --tail="50" "$@"; }
+
+# gerenciador TUI de sessões do tmux (bin/tmx); `tmux <args>` continua repassando ao tmux real
+alias tmux='tmx'

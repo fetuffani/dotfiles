@@ -17,5 +17,8 @@ command -v starship >/dev/null && eval "$(starship init zsh)"
 
 source "${${(%):-%x}:A:h}/aliases.zsh"
 
+# avisa (1 checagem/dia, em background) se há atualização dos dotfiles no GitHub
+source "${${(%):-%x}:A:h}/update-check.zsh"
+
 # machine-specific overrides (untracked)
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
